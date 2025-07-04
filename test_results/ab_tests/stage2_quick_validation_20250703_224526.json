@@ -1,0 +1,155 @@
+{
+  "test_name": "stage2_quick_validation",
+  "timestamp": "2025-07-03T22:44:54.675029",
+  "pdf_count": 3,
+  "individual_results": [
+    {
+      "pdf_path": "test_documents/academic_paper.pdf",
+      "baseline": {
+        "topics": 3,
+        "facts": 3,
+        "relationships": 2,
+        "questions": 5,
+        "confidence": 0.85,
+        "avg_fact_confidence": 0.85
+      },
+      "document_aware": {
+        "topics": 3,
+        "facts": 3,
+        "relationships": 2,
+        "questions": 2,
+        "confidence": 0.7946538901482618,
+        "avg_fact_confidence": 0.8666666666666667,
+        "strategy": "academic",
+        "document_type": "academic"
+      },
+      "improvements": {
+        "topics_delta": 0,
+        "facts_delta": 0,
+        "confidence_delta": -0.05534610985173816,
+        "has_special_elements": false
+      },
+      "quality_metrics": {
+        "confidence_improvement": -0.05534610985173816,
+        "fact_confidence_improvement": 0.01666666666666672,
+        "extraction_completeness": {
+          "baseline": 0.06,
+          "aware": 0.06
+        },
+        "strategy_benefit": true,
+        "specialized_extraction": true,
+        "overall_improvement_score": 0.75
+      }
+    },
+    {
+      "pdf_path": "test_documents/technical_manual.pdf",
+      "baseline": {
+        "topics": 5,
+        "facts": 5,
+        "relationships": 3,
+        "questions": 5,
+        "confidence": 0.85,
+        "avg_fact_confidence": 0.9
+      },
+      "document_aware": {
+        "topics": 5,
+        "facts": 5,
+        "relationships": 4,
+        "questions": 5,
+        "confidence": 0.85,
+        "avg_fact_confidence": 0.9,
+        "strategy": "baseline_validated",
+        "document_type": "technical"
+      },
+      "improvements": {
+        "topics_delta": 0,
+        "facts_delta": 0,
+        "confidence_delta": 0.0,
+        "has_special_elements": false
+      },
+      "quality_metrics": {
+        "confidence_improvement": 0.0,
+        "fact_confidence_improvement": 0.0,
+        "extraction_completeness": {
+          "baseline": 0.1,
+          "aware": 0.1
+        },
+        "strategy_benefit": true,
+        "specialized_extraction": true,
+        "overall_improvement_score": 0.5
+      }
+    },
+    {
+      "pdf_path": "test_documents/business_book.pdf",
+      "baseline": {
+        "topics": 3,
+        "facts": 3,
+        "relationships": 3,
+        "questions": 5,
+        "confidence": 0.85,
+        "avg_fact_confidence": 0.8833333333333333
+      },
+      "document_aware": {
+        "topics": 3,
+        "facts": 3,
+        "relationships": 2,
+        "questions": 2,
+        "confidence": 0.8289960407339426,
+        "avg_fact_confidence": 0.8833333333333333,
+        "strategy": "narrative",
+        "document_type": "business"
+      },
+      "improvements": {
+        "topics_delta": 0,
+        "facts_delta": 0,
+        "confidence_delta": -0.02100395926605736,
+        "has_special_elements": false
+      },
+      "quality_metrics": {
+        "confidence_improvement": -0.02100395926605736,
+        "fact_confidence_improvement": 0.0,
+        "extraction_completeness": {
+          "baseline": 0.06,
+          "aware": 0.06
+        },
+        "strategy_benefit": true,
+        "specialized_extraction": true,
+        "overall_improvement_score": 0.5
+      }
+    }
+  ],
+  "aggregate_metrics": {
+    "total_tests": 3,
+    "successful_tests": 3,
+    "average_confidence_improvement": -0.025450023039265173,
+    "average_facts_improvement": 0,
+    "average_quality_score": 0.5833333333333334,
+    "improvement_rate": 0.3333333333333333,
+    "strategy_distribution": {
+      "academic": 1,
+      "baseline_validated": 1,
+      "narrative": 1
+    },
+    "document_type_distribution": {
+      "academic": 1,
+      "technical": 1,
+      "business": 1
+    }
+  },
+  "statistical_analysis": {
+    "confidence_improvement": {
+      "mean": -0.025450023039265173,
+      "median": -0.02100395926605736,
+      "stdev": 0.0279396417521188,
+      "min": -0.05534610985173816,
+      "max": 0.0
+    },
+    "significant_improvement": false,
+    "consistency": true,
+    "success_rate_by_type": {
+      "academic": 1.0,
+      "technical": 0.0,
+      "business": 0.0
+    }
+  }
+}

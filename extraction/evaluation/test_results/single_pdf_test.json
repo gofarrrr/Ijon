@@ -1,0 +1,14 @@
+{
+  "pdf": "technical_manual.pdf",
+  "chunk_size": 909,
+  "extraction_summary": {
+    "topics": 3,
+    "facts": 2,
+    "questions": 5,
+    "confidence": 0.85
+  },
+  "metrics": {
+    "avg_confidence": 0.8583333333333334,
+    "processing_time_ms": 13019.895076751709
+  }
+}

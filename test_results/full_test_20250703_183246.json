@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-07-03T18:32:46.039006",
+  "execution_time_seconds": 11.484245,
+  "documents_processed": 3,
+  "total_chunks": 8,
+  "queries_tested": 4,
+  "correct_domains": 4,
+  "average_score": 0.8613846063533183,
+  "detailed_results": [
+    {
+      "query": "What is supervised learning?",
+      "correct_domain": true,
+      "top_score": 0.8594057416363967,
+      "answer_length": 351
+    },
+    {
+      "query": "What are the symptoms of diabetes?",
+      "correct_domain": true,
+      "top_score": 0.8804765258033441,
+      "answer_length": 260
+    },
+    {
+      "query": "What makes a contract valid?",
+      "correct_domain": true,
+      "top_score": 0.8706597465488981,
+      "answer_length": 223
+    },
+    {
+      "query": "Compare transformers and RNNs for sequence modeling",
+      "correct_domain": true,
+      "top_score": 0.834996411424634,
+      "answer_length": 1577
+    }
+  ]
+}

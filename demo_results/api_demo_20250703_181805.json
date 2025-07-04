@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-07-03T18:18:05.339734",
+  "query": "What is supervised learning?",
+  "chunks_processed": 2,
+  "embeddings_generated": 2,
+  "api_calls": {
+    "openai_embeddings": 3,
+    "openai_completion": 1
+  }
+}

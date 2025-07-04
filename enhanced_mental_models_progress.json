@@ -1,0 +1,23 @@
+{
+  "processed": {
+    "06c96188211482fb731fed745b48fce7": {
+      "status": "completed",
+      "document_id": "e121b969-f332-4e39-af13-3a9763daa93c",
+      "chunks_count": 336,
+      "qa_pairs": 32,
+      "knowledge_items": 53,
+      "processing_time": 506.06933093070984,
+      "timestamp": "2025-07-04T16:23:04.502573",
+      "file_path": "/Users/marcin/Desktop/aplikacje/ksiazki pdf/modele mentalne psychologia selfhelp podejmowanie decyzji/One plus one equals three _ a masterclass in creative -- Trott, Dave -- Management Psychology Creativity, Hardcover, 2015 -- Macmillan Education UK -- 9781447283867 -- 0ea13e17198165cc450c7e9ac171e68f -- Anna\u2019s Archive.pdf"
+    }
+  },
+  "failed": {},
+  "session_stats": {
+    "total_sessions": 0,
+    "last_session": "2025-07-04T16:23:04.509202",
+    "total_processed": 1,
+    "total_failed": 0,
+    "total_qa_pairs": 32,
+    "total_knowledge_items": 53
+  }
+}

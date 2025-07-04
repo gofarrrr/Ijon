@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ijon-extraction": {
+      "command": "python",
+      "args": ["-m", "extraction.v2.mcp_server"],
+      "env": {
+        "PYTHONPATH": "."
+      }
+    }
+  }
+}

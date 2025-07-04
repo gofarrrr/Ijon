@@ -1,0 +1,27 @@
+{
+  "timestamp": "2025-07-03T18:15:43.081671",
+  "tests": {
+    "openai": {
+      "status": "failed",
+      "error": "Package not installed"
+    },
+    "pinecone": {
+      "status": "failed",
+      "error": "The official Pinecone python package has been renamed from `pinecone-client` to `pinecone`. Please remove `pinecone-client` from your project dependencies and add `pinecone` instead. See the README at https://github.com/pinecone-io/pinecone-python-client for more information on using the python SDK."
+    },
+    "sentence_transformers": {
+      "status": "failed",
+      "error": "Package not installed"
+    },
+    "pdf_libraries": {
+      "PyPDF2": "not installed",
+      "pdfplumber": "not installed",
+      "PyMuPDF": "not installed"
+    },
+    "file_system": {
+      "sample_pdfs": "exists",
+      "logs": "created",
+      "exports": "created"
+    }
+  }
+}

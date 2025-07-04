@@ -1,0 +1,16 @@
+{
+  "filename": "historical_text.pdf",
+  "document_type": "historical",
+  "title": "The Dawn of the Information Age: Computing in the 1940s",
+  "source": "Generated for testing",
+  "page_count": 5,
+  "language": "en",
+  "characteristics": [
+    "historical_narrative",
+    "technology_history",
+    "1940s",
+    "computing_pioneers"
+  ],
+  "expected_extraction_difficulty": "medium",
+  "notes": "Synthetic test document for historical_text category"
+}

@@ -1,0 +1,139 @@
+{
+  "id": "3863747a-0ff6-4bc9-8ad7-937e6e6a37a7",
+  "chunk_id": "test_chunk_001",
+  "topics": [
+    {
+      "id": "69f70a0e-097f-4fe6-a3fb-488ad96fbee2",
+      "name": "Machine Learning",
+      "description": "Machine learning is a branch of artificial intelligence that enables systems to learn and improve from experience without explicit programming.",
+      "confidence": 1.0,
+      "keywords": [
+        "AI",
+        "automatic learning",
+        "data analysis",
+        "computer programs"
+      ],
+      "source_chunks": []
+    },
+    {
+      "id": "8f9764ef-953d-4787-a58c-0ee7257985f5",
+      "name": "Learning Methods",
+      "description": "Machine learning methods include supervised learning, unsupervised learning, and reinforcement learning, each with distinct approaches to learning and problem-solving.",
+      "confidence": 0.95,
+      "keywords": [
+        "supervised learning",
+        "unsupervised learning",
+        "reinforcement learning"
+      ],
+      "source_chunks": []
+    }
+  ],
+  "facts": [
+    {
+      "id": "2544a1ba-de18-47a1-82bf-25635ba387c8",
+      "claim": "Machine learning allows systems to learn and improve from experience without being explicitly programmed.",
+      "evidence": "Machine learning is a subset of artificial intelligence (AI) that provides systems the ability to automatically learn and improve from experience without being explicitly programmed.",
+      "confidence": 1.0,
+      "topics": [],
+      "source_page": null,
+      "source_chunk": null
+    },
+    {
+      "id": "965d9179-e475-49b8-a3fe-d0e1276fddcb",
+      "claim": "The primary aim of machine learning is to allow computers to learn automatically without human intervention.",
+      "evidence": "The primary aim is to allow the computers to learn automatically without human intervention or assistance and adjust actions accordingly.",
+      "confidence": 1.0,
+      "topics": [],
+      "source_page": null,
+      "source_chunk": null
+    }
+  ],
+  "relationships": [
+    {
+      "id": "cf9452ad-a472-4c70-8e7e-9e8e5ec33964",
+      "source_entity": "Machine Learning",
+      "target_entity": "Artificial Intelligence",
+      "relationship_type": "is part of",
+      "description": "Machine learning is a subset of artificial intelligence.",
+      "confidence": 1.0,
+      "bidirectional": false,
+      "source_chunks": []
+    },
+    {
+      "id": "bcd7118e-131d-4181-b63d-07254e021065",
+      "source_entity": "Supervised Learning",
+      "target_entity": "Machine Learning Methods",
+      "relationship_type": "is a type of",
+      "description": "Supervised learning is one method under the broader category of machine learning methods.",
+      "confidence": 0.95,
+      "bidirectional": false,
+      "source_chunks": []
+    }
+  ],
+  "questions": [
+    {
+      "id": "a878fd93-0a4e-4137-8595-30ef7f08f936",
+      "question_text": "What is machine learning?",
+      "expected_answer": "Machine learning is a branch of AI that enables systems to learn from experience without explicit programming.",
+      "answer_chunks": [],
+      "cognitive_level": "remember",
+      "difficulty": 1,
+      "topics": [],
+      "confidence": 1.0
+    },
+    {
+      "id": "8daac4cd-5911-46d2-8111-7c3e2c7764c6",
+      "question_text": "How does machine learning differ from traditional programming?",
+      "expected_answer": "Machine learning allows systems to learn and improve from experience automatically, unlike traditional programming that requires explicit instructions.",
+      "answer_chunks": [],
+      "cognitive_level": "understand",
+      "difficulty": 2,
+      "topics": [],
+      "confidence": 0.95
+    },
+    {
+      "id": "a28d7558-cf8b-4f39-a0d0-fbe8d9976743",
+      "question_text": "What are the main types of machine learning methods mentioned?",
+      "expected_answer": "Supervised learning, unsupervised learning, and reinforcement learning.",
+      "answer_chunks": [],
+      "cognitive_level": "remember",
+      "difficulty": 1,
+      "topics": [],
+      "confidence": 1.0
+    },
+    {
+      "id": "e856878c-61ee-4d6b-afdf-2b31d23a46ca",
+      "question_text": "Why is unsupervised learning considered challenging?",
+      "expected_answer": "Because no labels are given to the learning algorithm, leaving it on its own to find structure in its input.",
+      "answer_chunks": [],
+      "cognitive_level": "understand",
+      "difficulty": 3,
+      "topics": [],
+      "confidence": 0.9
+    },
+    {
+      "id": "f4bd602b-7d5d-45c9-ac01-9953aa143907",
+      "question_text": "What is the primary aim of machine learning?",
+      "expected_answer": "To allow computers to learn automatically without human intervention and adjust actions accordingly.",
+      "answer_chunks": [],
+      "cognitive_level": "remember",
+      "difficulty": 1,
+      "topics": [],
+      "confidence": 1.0
+    }
+  ],
+  "summary": "Machine learning, a subset of artificial intelligence, enables systems to learn and improve from experience without explicit programming. It employs methods like supervised, unsupervised, and reinforcement learning to analyze data, identify patterns, and make decisions with minimal human intervention. The primary goal is to facilitate automatic learning and adaptation.",
+  "overall_confidence": 0.95,
+  "extraction_metadata": {
+    "stage": 1,
+    "strategy": "baseline",
+    "model": "gpt-4-turbo-preview",
+    "temperature": 0.3,
+    "processing_time_ms": 22954.256057739258,
+    "chunk_metadata": {
+      "source": "test",
+      "page": 1
+    }
+  },
+  "created_at": "2025-07-03 19:28:03.098682"
+}

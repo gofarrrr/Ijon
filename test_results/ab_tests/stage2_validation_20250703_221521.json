@@ -1,0 +1,33 @@
+{
+  "test_name": "stage2_validation",
+  "timestamp": "2025-07-03T22:15:19.669617",
+  "pdf_count": 5,
+  "individual_results": [
+    {
+      "pdf_path": "test_data/technical_manual.pdf",
+      "error": "1 validation error for ExtractedKnowledge\nchunk_id\n  Field required [type=missing, input_value={'topics': [], 'facts': [...'extract_text_chunks'\"}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing"
+    },
+    {
+      "pdf_path": "test_data/research_paper.pdf",
+      "error": "1 validation error for ExtractedKnowledge\nchunk_id\n  Field required [type=missing, input_value={'topics': [], 'facts': [...'extract_text_chunks'\"}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing"
+    },
+    {
+      "pdf_path": "test_data/business_book.pdf",
+      "error": "1 validation error for ExtractedKnowledge\nchunk_id\n  Field required [type=missing, input_value={'topics': [], 'facts': [...'extract_text_chunks'\"}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing"
+    },
+    {
+      "pdf_path": "test_data/tutorial_guide.pdf",
+      "error": "1 validation error for ExtractedKnowledge\nchunk_id\n  Field required [type=missing, input_value={'topics': [], 'facts': [...'extract_text_chunks'\"}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing"
+    },
+    {
+      "pdf_path": "test_data/historical_document.pdf",
+      "error": "1 validation error for ExtractedKnowledge\nchunk_id\n  Field required [type=missing, input_value={'topics': [], 'facts': [...'extract_text_chunks'\"}}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.11/v/missing"
+    }
+  ],
+  "aggregate_metrics": {
+    "error": "No valid results"
+  },
+  "statistical_analysis": {
+    "error": "Insufficient data for statistical analysis"
+  }
+}

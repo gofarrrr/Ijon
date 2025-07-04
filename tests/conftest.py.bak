@@ -1,0 +1,412 @@
+"""
+Pytest configuration and fixtures for Ijon tests.
+
+This module provides common fixtures and configuration for all tests.
+"""
+
+import asyncio
+from datetime import datetime
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, Generator, List
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+from pydantic_settings import BaseSettings
+
+from src.config import Settings
+from src.models import (
+    Document,
+    PDFChunk,
+    PDFMetadata,
+    PDFPage,
+    ProcessingStatus,
+    SearchResult,
+)
+from src.vector_db.base import VectorDatabase
+
+
+# =============================================================================
+# Configuration
+# =============================================================================
+
+
+@pytest.fixture
+def test_settings() -> Settings:
+    """Create test settings with mock values."""
+    return Settings(
+        # Use test environment values
+        vector_db_type="pinecone",
+        pinecone_api_key="test-api-key",
+        pinecone_environment="test-env",
+        pinecone_index_name="test-index",
+        openai_api_key="test-openai-key",
+        drive_credentials_path=Path("test-credentials.json"),
+        drive_folder_ids=["test-folder-1", "test-folder-2"],
+        log_level="DEBUG",
+        dev_mode=True,
+        use_mock_services=True,
+        # Disable file logging for tests
+        log_file_path=None,
+    )
+
+
+@pytest.fixture
+def mock_settings(test_settings: Settings, monkeypatch) -> Settings:
+    """Mock the global settings."""
+    monkeypatch.setattr("src.config.settings", test_settings)
+    return test_settings
+
+
+# =============================================================================
+# Test Data Generators
+# =============================================================================
+
+
+@pytest.fixture
+def sample_pdf_metadata() -> PDFMetadata:
+    """Generate sample PDF metadata."""
+    return PDFMetadata(
+        file_id="test-file-id-123",
+        filename="test-document.pdf",
+        drive_path="/test/path/test-document.pdf",
+        file_size_bytes=1024 * 1024,  # 1MB
+        total_pages=10,
+        processing_status=ProcessingStatus.COMPLETED,
+        title="Test Document",
+        author="Test Author",
+        subject="Test Subject",
+        keywords=["test", "sample", "document"],
+        creation_date=datetime.utcnow(),
+    )
+
+
+@pytest.fixture
+def sample_pdf_pages() -> List[PDFPage]:
+    """Generate sample PDF pages."""
+    pages = []
+    for i in range(1, 4):
+        page = PDFPage(
+            page_number=i,
+            text=f"This is the content of page {i}. It contains sample text for testing purposes. "
+                 f"The page has multiple sentences to simulate real content.",
+            images=[],
+            tables=[],
+            has_ocr=False,
+        )
+        pages.append(page)
+    return pages
+
+
+@pytest.fixture
+def sample_pdf_chunks() -> List[PDFChunk]:
+    """Generate sample PDF chunks."""
+    chunks = []
+    for i in range(5):
+        chunk = PDFChunk(
+            id=str(uuid4()),
+            pdf_id="test-file-id-123",
+            content=f"This is chunk {i} content. It contains enough text to be meaningful. "
+                    f"The chunk represents a portion of the document that can be searched.",
+            page_numbers=[i + 1, i + 2],
+            chunk_index=i,
+            metadata={
+                "filename": "test-document.pdf",
+                "section": f"Section {i // 2 + 1}",
+            },
+            word_count=20,
+            char_count=150,
+            section_title=f"Section {i // 2 + 1}",
+        )
+        chunks.append(chunk)
+    return chunks
+
+
+@pytest.fixture
+def sample_documents() -> List[Document]:
+    """Generate sample documents for vector database."""
+    docs = []
+    for i in range(3):
+        doc = Document(
+            id=f"doc-{i}",
+            content=f"This is document {i}. It contains sample content for testing vector search.",
+            metadata={
+                "source": "test",
+                "page": i + 1,
+                "chunk_index": i,
+            },
+            embedding=[0.1 * (i + 1)] * 384,  # Mock embedding
+        )
+        docs.append(doc)
+    return docs
+
+
+@pytest.fixture
+def sample_search_results(sample_documents: List[Document]) -> List[SearchResult]:
+    """Generate sample search results."""
+    results = []
+    for i, doc in enumerate(sample_documents):
+        result = SearchResult(
+            document=doc,
+            score=0.9 - (i * 0.1),
+            rank=i + 1,
+        )
+        results.append(result)
+    return results
+
+
+# =============================================================================
+# Mock Services
+# =============================================================================
+
+
+@pytest.fixture
+def mock_embedding_function() -> AsyncMock:
+    """Mock embedding function."""
+    async def _mock_embed(texts: List[str]) -> List[List[float]]:
+        # Return mock embeddings of dimension 384
+        return [[0.1] * 384 for _ in texts]
+    
+    return AsyncMock(side_effect=_mock_embed)
+
+
+@pytest.fixture
+def mock_vector_db(mock_embedding_function: AsyncMock) -> AsyncMock:
+    """Mock vector database."""
+    mock_db = AsyncMock(spec=VectorDatabase)
+    mock_db.embedding_function = mock_embedding_function
+    mock_db._initialized = True
+    
+    # Mock common methods
+    mock_db.initialize.return_value = None
+    mock_db.close.return_value = None
+    mock_db.upsert_documents.return_value = None
+    mock_db.delete_documents.return_value = 1
+    mock_db.count_documents.return_value = 10
+    mock_db.clear.return_value = None
+    
+    return mock_db
+
+
+@pytest.fixture
+def mock_google_drive_service() -> MagicMock:
+    """Mock Google Drive service."""
+    mock_service = MagicMock()
+    
+    # Mock files().list()
+    mock_files = MagicMock()
+    mock_service.files.return_value = mock_files
+    
+    mock_list = MagicMock()
+    mock_files.list.return_value = mock_list
+    
+    mock_list.execute.return_value = {
+        "files": [
+            {
+                "id": "file-1",
+                "name": "document1.pdf",
+                "mimeType": "application/pdf",
+                "size": "1048576",
+            },
+            {
+                "id": "file-2",
+                "name": "document2.pdf",
+                "mimeType": "application/pdf",
+                "size": "2097152",
+            },
+        ]
+    }
+    
+    # Mock files().get_media()
+    mock_get_media = MagicMock()
+    mock_files.get_media.return_value = mock_get_media
+    
+    return mock_service
+
+
+@pytest.fixture
+def mock_openai_client() -> AsyncMock:
+    """Mock OpenAI client."""
+    mock_client = AsyncMock()
+    
+    # Mock embeddings
+    mock_embeddings = AsyncMock()
+    mock_client.embeddings = mock_embeddings
+    
+    mock_create = AsyncMock()
+    mock_embeddings.create = mock_create
+    mock_create.return_value = MagicMock(
+        data=[MagicMock(embedding=[0.1] * 1536) for _ in range(10)]
+    )
+    
+    # Mock chat completions
+    mock_chat = AsyncMock()
+    mock_client.chat = mock_chat
+    
+    mock_completions = AsyncMock()
+    mock_chat.completions = mock_completions
+    
+    mock_create_chat = AsyncMock()
+    mock_completions.create = mock_create_chat
+    mock_create_chat.return_value = MagicMock(
+        choices=[
+            MagicMock(
+                message=MagicMock(content="This is a generated answer.")
+            )
+        ]
+    )
+    
+    return mock_client
+
+
+# =============================================================================
+# File System Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def temp_dir(tmp_path: Path) -> Path:
+    """Create a temporary directory for tests."""
+    return tmp_path
+
+
+@pytest.fixture
+def sample_pdf_file(temp_dir: Path) -> Path:
+    """Create a sample PDF file for testing."""
+    pdf_path = temp_dir / "sample.pdf"
+    # Create a minimal valid PDF
+    pdf_content = b"""%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >> >> >> /MediaBox [0 0 612 792] /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 44 >>
+stream
+BT
+/F1 12 Tf
+100 700 Td
+(Hello, World!) Tj
+ET
+endstream
+endobj
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000308 00000 n 
+trailer
+<< /Size 5 /Root 1 0 R >>
+startxref
+402
+%%EOF"""
+    pdf_path.write_bytes(pdf_content)
+    return pdf_path
+
+
+# =============================================================================
+# Async Utilities
+# =============================================================================
+
+
+@pytest.fixture
+def event_loop():
+    """Create an event loop for async tests."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+# =============================================================================
+# Database Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+async def mock_pinecone_index() -> AsyncMock:
+    """Mock Pinecone index."""
+    mock_index = AsyncMock()
+    
+    # Mock upsert
+    mock_index.upsert.return_value = {"upserted_count": 10}
+    
+    # Mock query
+    mock_index.query.return_value = {
+        "matches": [
+            {
+                "id": "doc-1",
+                "score": 0.9,
+                "metadata": {"content": "Test content"},
+            }
+        ]
+    }
+    
+    # Mock delete
+    mock_index.delete.return_value = {}
+    
+    # Mock describe_index_stats
+    mock_index.describe_index_stats.return_value = {
+        "total_vector_count": 100,
+        "dimension": 384,
+    }
+    
+    return mock_index
+
+
+# =============================================================================
+# HTTP Client Mocks
+# =============================================================================
+
+
+@pytest.fixture
+def mock_httpx_client() -> AsyncMock:
+    """Mock httpx async client."""
+    mock_client = AsyncMock()
+    
+    # Mock response
+    mock_response = AsyncMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "success"}
+    mock_response.text = "Success"
+    
+    # Mock HTTP methods
+    mock_client.get.return_value = mock_response
+    mock_client.post.return_value = mock_response
+    mock_client.put.return_value = mock_response
+    mock_client.delete.return_value = mock_response
+    
+    return mock_client
+
+
+# =============================================================================
+# Performance Testing
+# =============================================================================
+
+
+@pytest.fixture
+def benchmark_data() -> Dict[str, Any]:
+    """Data for performance benchmarks."""
+    return {
+        "large_text": "Lorem ipsum " * 1000,  # ~10KB of text
+        "many_chunks": [f"Chunk {i}" * 100 for i in range(100)],
+        "large_embeddings": [[0.1] * 384 for _ in range(100)],
+    }
+
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+
+@pytest.fixture(autouse=True)
+def cleanup_after_test():
+    """Clean up after each test."""
+    yield
+    # Add any cleanup code here if needed

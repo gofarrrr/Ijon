@@ -1,0 +1,33 @@
+{
+  "test_name": "stage2_validation",
+  "timestamp": "2025-07-03T22:14:12.081714",
+  "pdf_count": 5,
+  "individual_results": [
+    {
+      "pdf_path": "test_data/technical_manual.pdf",
+      "error": "BaselineExtractor.extract() missing 1 required positional argument: 'content'"
+    },
+    {
+      "pdf_path": "test_data/research_paper.pdf",
+      "error": "BaselineExtractor.extract() missing 1 required positional argument: 'content'"
+    },
+    {
+      "pdf_path": "test_data/business_book.pdf",
+      "error": "BaselineExtractor.extract() missing 1 required positional argument: 'content'"
+    },
+    {
+      "pdf_path": "test_data/tutorial_guide.pdf",
+      "error": "BaselineExtractor.extract() missing 1 required positional argument: 'content'"
+    },
+    {
+      "pdf_path": "test_data/historical_document.pdf",
+      "error": "BaselineExtractor.extract() missing 1 required positional argument: 'content'"
+    }
+  ],
+  "aggregate_metrics": {
+    "error": "No valid results"
+  },
+  "statistical_analysis": {
+    "error": "Insufficient data for statistical analysis"
+  }
+}
