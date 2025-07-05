@@ -21,6 +21,8 @@ from src.config import get_settings
 from src.models import SearchResult, PDFChunk
 from src.utils.errors import RetrievalError
 from src.utils.logging import get_logger, log_performance
+from src.context.smart_context_enhancer import SmartContextEnhancer, ContextMetadata
+from src.evaluation.metrics_collector import get_metrics_collector, collect_metrics
 
 logger = get_logger(__name__)
 
@@ -75,6 +77,8 @@ class HybridReranker:
         self._reranker = None
         self._bm25_class = None
         self._models_loaded = False
+        self._context_enhancer = SmartContextEnhancer()
+        self._metrics_collector = get_metrics_collector()
         
         # Setup cache directory
         if self.use_cache:
@@ -123,6 +127,7 @@ class HybridReranker:
             self._models_loaded = True
 
     @log_performance
+    @collect_metrics('reranker', 'hybrid_rerank')
     async def hybrid_rerank(
         self,
         query: str,
@@ -177,6 +182,24 @@ class HybridReranker:
                 f"Hybrid reranking: {len(vector_results)} → {len(hybrid_results)} → {len(final_results)}"
             )
             
+            # Record detailed metrics
+            await self._metrics_collector.record_metric(
+                'input_docs', len(vector_results), 'reranker', 'hybrid_rerank'
+            )
+            await self._metrics_collector.record_metric(
+                'output_docs', len(final_results), 'reranker', 'hybrid_rerank'
+            )
+            
+            # Track score improvements
+            if final_results and vector_results:
+                original_top_score = vector_results[0].score
+                reranked_top_score = final_results[0].score
+                score_improvement = (reranked_top_score - original_top_score) / original_top_score if original_top_score > 0 else 0
+                
+                await self._metrics_collector.record_metric(
+                    'score_improvement_pct', score_improvement * 100, 'reranker', 'hybrid_rerank'
+                )
+            
             return final_results
             
         except Exception as e:
@@ -189,45 +212,29 @@ class HybridReranker:
         results: List[SearchResult],
     ) -> List[SearchResult]:
         """
-        Anthropic's contextual retrieval: Add 50-100 token context to each chunk.
+        Use SmartContextEnhancer for contextual retrieval enhancement.
         """
         try:
-            # Use Gemini to generate contextual information for each chunk
-            from src.rag.gemini_embedder import GeminiEmbeddingGenerator
-            import google.generativeai as genai
-            
-            # Configure Gemini for context generation
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
-            if not gemini_api_key:
-                logger.warning("GEMINI_API_KEY not found, skipping contextual enhancement")
-                return results
-                
-            genai.configure(api_key=gemini_api_key)
-            
             enhanced_results = []
             
             for result in results:
                 try:
-                    # Generate contextual information using Gemini
-                    context_prompt = f"""
-Provide a concise 50-100 token context that explains what this document chunk is about and how it relates to the broader document. Include key topics, concepts, and relationships.
-
-Chunk content:
-{result.document.content[:1000]}...
-
-Context:"""
+                    # Create context metadata if available
+                    metadata = None
+                    if hasattr(result.document, 'metadata') and result.document.metadata:
+                        doc_meta = result.document.metadata
+                        metadata = ContextMetadata(
+                            title=doc_meta.get('title', 'Unknown'),
+                            page_num=doc_meta.get('page_number', 0),
+                            category=doc_meta.get('category'),
+                            chapter=doc_meta.get('chapter')
+                        )
                     
-                    response = genai.generate_text(
-                        model="gemini-pro",
-                        prompt=context_prompt,
-                        temperature=0.3,
-                        max_output_tokens=100,
+                    # Enhance content using SmartContextEnhancer
+                    enhanced_content = self._context_enhancer.enhance_chunk(
+                        result.document.content,
+                        metadata=metadata
                     )
-                    
-                    context = response.result if response.result else ""
-                    
-                    # Prepend context to content
-                    enhanced_content = f"Context: {context}\n\n{result.document.content}"
                     
                     # Create enhanced result
                     enhanced_doc = result.document

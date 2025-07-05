@@ -16,6 +16,7 @@ from src.config import get_settings
 from src.rag.graph_store import Entity, Relationship
 from src.models import PDFChunk
 from src.utils.logging import get_logger, log_performance
+from src.evaluation.metrics_collector import get_metrics_collector, collect_metrics
 
 logger = get_logger(__name__)
 
@@ -48,6 +49,7 @@ class EntityExtractor:
         self.model_name = model_name
         self.temperature = temperature
         self.batch_size = batch_size
+        self._metrics_collector = get_metrics_collector()
         
         # Entity types to extract
         self.entity_types = [
@@ -76,6 +78,7 @@ class EntityExtractor:
         logger.info(f"Initialized entity extractor with model: {self.model_name}")
     
     @log_performance
+    @collect_metrics('entity_extractor', 'extract_from_chunk')
     async def extract_from_chunk(
         self,
         chunk: PDFChunk,
@@ -109,6 +112,16 @@ class EntityExtractor:
             # Parse the response
             extraction_result = self._parse_extraction_response(
                 response.text, chunk.id
+            )
+            
+            # Record extraction metrics
+            await self._metrics_collector.record_metric(
+                'entities_per_chunk', len(extraction_result.entities),
+                'entity_extractor', 'extract_from_chunk'
+            )
+            await self._metrics_collector.record_metric(
+                'relationships_per_chunk', len(extraction_result.relationships),
+                'entity_extractor', 'extract_from_chunk'
             )
             
             return extraction_result

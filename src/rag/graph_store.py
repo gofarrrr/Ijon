@@ -16,6 +16,7 @@ from dataclasses import dataclass, asdict
 from src.config import get_settings
 from src.utils.errors import VectorDatabaseError
 from src.utils.logging import get_logger, log_performance
+from src.evaluation.metrics_collector import get_metrics_collector, collect_metrics
 
 logger = get_logger(__name__)
 
@@ -75,6 +76,7 @@ class PostgresGraphStore:
         self.settings = get_settings()
         self.connection_string = connection_string or os.getenv("DATABASE_URL")
         self.pool = None
+        self._metrics_collector = get_metrics_collector()
         
     async def initialize(self):
         """Initialize connection pool and create tables."""
@@ -150,6 +152,7 @@ class PostgresGraphStore:
             logger.info("Graph schema created successfully")
     
     @log_performance
+    @collect_metrics('graph_store', 'add_entity')
     async def add_entity(self, entity: Entity) -> Entity:
         """Add or update an entity."""
         async with self.pool.acquire() as conn:
