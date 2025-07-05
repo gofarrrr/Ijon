@@ -20,6 +20,7 @@ import os
 
 from src.config import get_settings
 from src.utils.logging import get_logger
+from src.database import get_connection_manager
 
 logger = get_logger(__name__)
 
@@ -46,11 +47,20 @@ class MetricsCollector:
     Integrates with existing logging and stores metrics in PostgreSQL.
     """
     
-    def __init__(self, connection_string: str = None):
-        """Initialize metrics collector."""
+    def __init__(self, use_shared_pool: bool = True):
+        """
+        Initialize metrics collector.
+        
+        Args:
+            use_shared_pool: Whether to use the shared connection manager (recommended)
+        """
         self.settings = get_settings()
-        self.connection_string = connection_string or os.getenv("DATABASE_URL")
+        self.use_shared_pool = use_shared_pool
+        self.connection_manager = get_connection_manager() if use_shared_pool else None
+        
+        # Legacy pool for backward compatibility
         self.pool = None
+        
         self._metrics_buffer = []
         self._buffer_size = 100
         self._flush_interval = 60  # seconds
@@ -67,23 +77,51 @@ class MetricsCollector:
     
     async def initialize(self):
         """Initialize database connection and create metrics table."""
+        if self.use_shared_pool:
+            # Use shared connection manager - no guard needed, manager handles it
+            await self.connection_manager.initialize()
+            await self._create_schema()
+            logger.info("Metrics collector initialized (using shared pool)")
+            return
+        
+        # Legacy pool initialization with guard
+        if self.pool is not None:
+            logger.debug("Metrics collector already initialized, skipping")
+            return
+            
         try:
+            connection_string = os.getenv("DATABASE_URL")
             self.pool = await asyncpg.create_pool(
-                self.connection_string,
+                connection_string,
                 min_size=2,
-                max_size=10
+                max_size=10,
+                timeout=30,  # Add timeout to prevent hangs
+                command_timeout=10  # Command timeout
             )
             
             await self._create_schema()
-            logger.info("Metrics collector initialized")
+            logger.info("Metrics collector initialized (legacy pool)")
             
         except Exception as e:
             logger.error(f"Failed to initialize metrics collector: {e}")
+            # Clean up on failure
+            if self.pool:
+                await self.pool.close()
+                self.pool = None
+            raise
     
     async def _create_schema(self):
         """Create metrics storage table."""
-        async with self.pool.acquire() as conn:
-            await conn.execute("""
+        if self.use_shared_pool:
+            async with self.connection_manager.get_connection() as conn:
+                await self._execute_schema_creation(conn)
+        else:
+            async with self.pool.acquire() as conn:
+                await self._execute_schema_creation(conn)
+    
+    async def _execute_schema_creation(self, conn):
+        """Execute schema creation commands."""
+        await conn.execute("""
                 CREATE TABLE IF NOT EXISTS metrics (
                     id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -91,13 +129,13 @@ class MetricsCollector:
                     component TEXT NOT NULL,
                     operation TEXT NOT NULL,
                     timestamp TIMESTAMP NOT NULL,
-                    metadata JSONB DEFAULT '{}',
-                    
-                    -- Indexes for efficient querying
-                    INDEX idx_metrics_timestamp (timestamp DESC),
-                    INDEX idx_metrics_component (component),
-                    INDEX idx_metrics_name (name)
+                    metadata JSONB DEFAULT '{}'
                 );
+                
+                -- Create indexes separately
+                CREATE INDEX IF NOT EXISTS idx_metrics_timestamp ON metrics(timestamp DESC);
+                CREATE INDEX IF NOT EXISTS idx_metrics_component ON metrics(component);
+                CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(name);
                 
                 -- Create partitions for time-series data
                 CREATE TABLE IF NOT EXISTS metrics_hourly (
@@ -115,7 +153,7 @@ class MetricsCollector:
                     p99 FLOAT,
                     PRIMARY KEY (component, operation, metric_name, hour)
                 );
-            """)
+        """)
     
     async def record_metric(
         self,
@@ -163,29 +201,51 @@ class MetricsCollector:
     
     async def flush_metrics(self):
         """Flush buffered metrics to database."""
-        if not self._metrics_buffer or not self.pool:
+        if not self._metrics_buffer:
+            return
+            
+        if self.use_shared_pool and not self.connection_manager:
+            logger.warning("Shared connection manager not available, skipping flush")
+            return
+            
+        if not self.use_shared_pool and not self.pool:
+            logger.warning("Legacy pool not available, skipping flush")
             return
         
+        buffer_size = len(self._metrics_buffer)
         try:
-            async with self.pool.acquire() as conn:
-                # Batch insert metrics
-                await conn.executemany(
-                    """
-                    INSERT INTO metrics (name, value, component, operation, timestamp, metadata)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    """,
-                    [
-                        (m.name, m.value, m.component, m.operation, m.timestamp, json.dumps(m.metadata))
-                        for m in self._metrics_buffer
-                    ]
-                )
-                
-                logger.debug(f"Flushed {len(self._metrics_buffer)} metrics to database")
-                self._metrics_buffer.clear()
-                self._last_flush = time.time()
+            if self.use_shared_pool:
+                async with self.connection_manager.get_connection() as conn:
+                    await self._execute_flush(conn, buffer_size)
+            else:
+                async with self.pool.acquire() as conn:
+                    await self._execute_flush(conn, buffer_size)
                 
         except Exception as e:
-            logger.error(f"Failed to flush metrics: {e}")
+            logger.error(f"Failed to flush {buffer_size} metrics: {e}")
+            # Clear buffer anyway to prevent memory leaks, but keep some for retry
+            if len(self._metrics_buffer) > self._buffer_size * 2:
+                # If buffer is getting too large, discard oldest metrics
+                self._metrics_buffer = self._metrics_buffer[-self._buffer_size:]
+                logger.warning(f"Discarded old metrics to prevent memory leak")
+    
+    async def _execute_flush(self, conn, buffer_size):
+        """Execute the actual flush operation."""
+        # Batch insert metrics
+        await conn.executemany(
+            """
+            INSERT INTO metrics (name, value, component, operation, timestamp, metadata)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            [
+                (m.name, m.value, m.component, m.operation, m.timestamp, json.dumps(m.metadata))
+                for m in self._metrics_buffer
+            ]
+        )
+        
+        logger.debug(f"Flushed {buffer_size} metrics to database")
+        self._metrics_buffer.clear()
+        self._last_flush = time.time()
     
     def get_aggregated_metrics(self, component: str = None, operation: str = None) -> Dict[str, Any]:
         """Get aggregated metrics from memory."""
@@ -260,8 +320,25 @@ class MetricsCollector:
     async def close(self):
         """Close database connections."""
         await self.flush_metrics()
-        if self.pool:
-            await self.pool.close()
+        
+        if self.use_shared_pool:
+            # Don't close shared connection manager - other components may be using it
+            logger.debug("Metrics collector closed (shared pool remains active)")
+        else:
+            # Close legacy pool
+            if self.pool:
+                await self.pool.close()
+                self.pool = None
+                logger.debug("Metrics collector closed (legacy pool closed)")
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self.initialize()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
 
 
 # Global metrics collector instance

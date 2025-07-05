@@ -17,6 +17,7 @@ from src.config import get_settings
 from src.utils.errors import VectorDatabaseError
 from src.utils.logging import get_logger, log_performance
 from src.evaluation.metrics_collector import get_metrics_collector, collect_metrics
+from src.database import get_connection_manager
 
 logger = get_logger(__name__)
 
@@ -71,41 +72,76 @@ class PostgresGraphStore:
     without requiring additional infrastructure.
     """
     
-    def __init__(self, connection_string: str = None):
-        """Initialize PostgreSQL graph store."""
+    def __init__(self, use_shared_pool: bool = True):
+        """
+        Initialize PostgreSQL graph store.
+        
+        Args:
+            use_shared_pool: Whether to use the shared connection manager (recommended)
+        """
         self.settings = get_settings()
-        self.connection_string = connection_string or os.getenv("DATABASE_URL")
+        self.use_shared_pool = use_shared_pool
+        self.connection_manager = get_connection_manager() if use_shared_pool else None
+        
+        # Legacy pool for backward compatibility
         self.pool = None
+        
         self._metrics_collector = get_metrics_collector()
         
     async def initialize(self):
         """Initialize connection pool and create tables."""
+        if self.use_shared_pool:
+            # Use shared connection manager
+            await self.connection_manager.initialize()
+            await self._create_schema()
+            logger.info("PostgreSQL graph store initialized (using shared pool)")
+            return
+        
+        # Legacy pool initialization with guard
+        if self.pool is not None:
+            logger.debug("Graph store already initialized, skipping")
+            return
+            
         try:
+            connection_string = os.getenv("DATABASE_URL")
             # Create connection pool
             self.pool = await asyncpg.create_pool(
-                self.connection_string,
+                connection_string,
                 min_size=2,
                 max_size=10,
+                timeout=30,  # Add timeout to prevent hangs
                 command_timeout=60
             )
             
             # Create schema
             await self._create_schema()
             
-            logger.info("PostgreSQL graph store initialized")
+            logger.info("PostgreSQL graph store initialized (legacy pool)")
             
         except Exception as e:
             logger.error(f"Failed to initialize graph store: {e}")
+            # Clean up on failure
+            if self.pool:
+                await self.pool.close()
+                self.pool = None
             raise VectorDatabaseError(f"Graph store initialization failed: {str(e)}")
     
     async def _create_schema(self):
         """Create tables for entities and relationships."""
-        async with self.pool.acquire() as conn:
-            # Enable pg_trgm extension for trigram similarity
-            await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
-            
-            # Create entities table
-            await conn.execute("""
+        if self.use_shared_pool:
+            async with self.connection_manager.get_connection() as conn:
+                await self._execute_schema_creation(conn)
+        else:
+            async with self._get_connection() as conn:
+                await self._execute_schema_creation(conn)
+    
+    async def _execute_schema_creation(self, conn):
+        """Execute schema creation commands."""
+        # Enable pg_trgm extension for trigram similarity
+        await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+        
+        # Create entities table
+        await conn.execute("""
                 CREATE TABLE IF NOT EXISTS entities (
                     id SERIAL PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -123,10 +159,10 @@ class PostgresGraphStore:
                 CREATE INDEX IF NOT EXISTS idx_entities_type ON entities(type);
                 CREATE INDEX IF NOT EXISTS idx_entities_name_trgm ON entities USING gin(name gin_trgm_ops);
                 CREATE INDEX IF NOT EXISTS idx_entities_chunk_ids ON entities USING gin(chunk_ids);
-            """)
-            
-            # Create relationships table
-            await conn.execute("""
+        """)
+        
+        # Create relationships table
+        await conn.execute("""
                 CREATE TABLE IF NOT EXISTS relationships (
                     id SERIAL PRIMARY KEY,
                     source_entity_id INTEGER REFERENCES entities(id) ON DELETE CASCADE,
@@ -144,18 +180,25 @@ class PostgresGraphStore:
                 CREATE INDEX IF NOT EXISTS idx_relationships_source ON relationships(source_entity_id);
                 CREATE INDEX IF NOT EXISTS idx_relationships_target ON relationships(target_entity_id);
                 CREATE INDEX IF NOT EXISTS idx_relationships_type ON relationships(type);
-            """)
-            
-            # Skip creating functions for now - they seem to have syntax issues
-            # We'll implement the logic directly in Python
-            
-            logger.info("Graph schema created successfully")
+        """)
+        
+        # Skip creating functions for now - they seem to have syntax issues
+        # We'll implement the logic directly in Python
+        
+        logger.info("Graph schema created successfully")
+    
+    async def _get_connection(self):
+        """Get a database connection from appropriate pool."""
+        if self.use_shared_pool:
+            return self.connection_manager.get_connection()
+        else:
+            return self.pool.acquire()
     
     @log_performance
     @collect_metrics('graph_store', 'add_entity')
     async def add_entity(self, entity: Entity) -> Entity:
         """Add or update an entity."""
-        async with self.pool.acquire() as conn:
+        async with self._get_connection() as conn:
             # Use upsert to handle duplicates
             result = await conn.fetchrow("""
                 INSERT INTO entities (name, type, description, properties, chunk_ids, confidence)
@@ -178,7 +221,7 @@ class PostgresGraphStore:
     @log_performance
     async def add_relationship(self, relationship: Relationship) -> Relationship:
         """Add or update a relationship."""
-        async with self.pool.acquire() as conn:
+        async with self._get_connection() as conn:
             # Use upsert to handle duplicates
             result = await conn.fetchrow("""
                 INSERT INTO relationships 
@@ -207,7 +250,7 @@ class PostgresGraphStore:
         limit: int = 10
     ) -> List[Entity]:
         """Find entities by name, type, or chunk."""
-        async with self.pool.acquire() as conn:
+        async with self._get_connection() as conn:
             query = "SELECT * FROM entities WHERE 1=1"
             params = []
             
@@ -247,7 +290,7 @@ class PostgresGraphStore:
         max_depth: int = 2
     ) -> Dict[str, Any]:
         """Get entity's graph neighborhood."""
-        async with self.pool.acquire() as conn:
+        async with self._get_connection() as conn:
             # Simple implementation without recursive CTE
             nodes = {}
             edges = []
@@ -317,7 +360,7 @@ class PostgresGraphStore:
         if source_entity_id == target_entity_id:
             return []
             
-        async with self.pool.acquire() as conn:
+        async with self._get_connection() as conn:
             # Simple BFS implementation
             queue = [(source_entity_id, [source_entity_id])]
             visited = {source_entity_id}
@@ -374,7 +417,7 @@ class PostgresGraphStore:
         limit: int = 20
     ) -> List[str]:
         """Get all chunk IDs related to given entities."""
-        async with self.pool.acquire() as conn:
+        async with self._get_connection() as conn:
             # Get chunks from entities
             entity_chunks = await conn.fetch("""
                 SELECT DISTINCT unnest(chunk_ids) as chunk_id
@@ -400,9 +443,24 @@ class PostgresGraphStore:
     
     async def close(self):
         """Close connection pool."""
-        if self.pool:
-            await self.pool.close()
-            logger.info("PostgreSQL graph store closed")
+        if self.use_shared_pool:
+            # Don't close shared connection manager - other components may be using it
+            logger.debug("Graph store closed (shared pool remains active)")
+        else:
+            # Close legacy pool
+            if self.pool:
+                await self.pool.close()
+                self.pool = None
+                logger.info("PostgreSQL graph store closed (legacy pool closed)")
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        await self.initialize()
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
 
 
 def create_graph_store() -> PostgresGraphStore:

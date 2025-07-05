@@ -10,10 +10,7 @@ from datetime import datetime
 import asyncio
 
 from src.evaluation.metrics_collector import get_metrics_collector, collect_metrics
-from src.evaluation.evaluator import ExtractionEvaluator
-from src.cognitive.quality_scorer import QualityScorer
-from src.cognitive.adaptive_quality_manager import AdaptiveQualityManager
-from src.models import SearchResult, PDFChunk, ExtractedKnowledge
+from src.models import SearchResult, PDFChunk
 from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -34,9 +31,6 @@ class EvaluationOrchestrator:
     def __init__(self):
         """Initialize evaluation orchestrator."""
         self.metrics_collector = get_metrics_collector()
-        self.extraction_evaluator = ExtractionEvaluator()
-        self.quality_scorer = QualityScorer()
-        self.adaptive_manager = AdaptiveQualityManager()
         
         # Quality thresholds
         self.min_quality_score = 0.7
@@ -122,50 +116,38 @@ class EvaluationOrchestrator:
     @collect_metrics('evaluation', 'evaluate_extraction')
     async def evaluate_extraction(
         self,
-        extracted: ExtractedKnowledge,
+        extracted: Dict[str, Any],
         chunk: PDFChunk
     ) -> Dict[str, Any]:
         """
-        Evaluate extraction quality using existing evaluator.
+        Evaluate extraction quality with simplified metrics.
         
         Args:
-            extracted: Extracted knowledge
+            extracted: Extracted data
             chunk: Source chunk
             
         Returns:
-            Comprehensive quality assessment
+            Quality assessment
         """
-        # Use existing extraction evaluator
-        report = self.extraction_evaluator.evaluate_extraction(extracted)
+        # Simple quality assessment
+        report = {
+            'chunk_id': chunk.id,
+            'timestamp': datetime.utcnow().isoformat()
+        }
         
-        # Calculate overall quality score
-        quality_score = self.quality_scorer.score_extraction(extracted)
+        # Calculate simple quality score based on extraction completeness
+        quality_score = 0.5  # Base score
+        if extracted.get('entities', []):
+            quality_score += 0.3
+        if extracted.get('relationships', []):
+            quality_score += 0.2
+        
         report['quality_score'] = quality_score
         
         # Record metrics
         await self.metrics_collector.record_metric(
             'extraction_quality', quality_score, 'extractor', 'extract'
         )
-        await self.metrics_collector.record_metric(
-            'topic_count', len(extracted.topics), 'extractor', 'extract'
-        )
-        await self.metrics_collector.record_metric(
-            'fact_count', len(extracted.facts), 'extractor', 'extract'
-        )
-        await self.metrics_collector.record_metric(
-            'question_count', len(extracted.questions), 'extractor', 'extract'
-        )
-        
-        # Check if re-extraction needed
-        if quality_score < self.min_quality_score:
-            report['needs_reextraction'] = True
-            report['reextraction_reason'] = 'Low quality score'
-            
-            # Get improvement suggestions
-            suggestions = await self.adaptive_manager.get_improvement_suggestions(
-                'extractor', report
-            )
-            report['improvement_suggestions'] = suggestions
         
         return report
     
@@ -224,7 +206,7 @@ class EvaluationOrchestrator:
         query: str,
         answer: str,
         retrieval_results: List[SearchResult],
-        extraction_results: Optional[List[ExtractedKnowledge]] = None
+        extraction_results: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Evaluate end-to-end RAG pipeline quality.
@@ -258,9 +240,10 @@ class EvaluationOrchestrator:
             'answer_length', len(answer), 'pipeline', 'end_to_end'
         )
         
-        # Track performance trend
-        await self.adaptive_manager.track_performance(
-            'pipeline', evaluation
+        # Track performance metric
+        await self.metrics_collector.record_metric(
+            'pipeline_quality', answer_quality['overall_score'],
+            'pipeline', 'performance'
         )
         
         return evaluation

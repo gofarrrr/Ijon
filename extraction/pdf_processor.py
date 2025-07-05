@@ -44,9 +44,16 @@ class PDFProcessor:
         Returns:
             List of PDFChunk objects
         """
+        import asyncio
+        import concurrent.futures
+        
+        # Use thread pool executor for backward compatibility
+        loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        
         try:
-            # Try PyPDF2 first
-            chunks = self._extract_with_pypdf2(pdf_path)
+            # Try PyPDF2 first - run in thread to avoid blocking
+            chunks = await loop.run_in_executor(executor, self._extract_with_pypdf2, pdf_path)
             if chunks:
                 return chunks
         except Exception as e:
@@ -55,7 +62,7 @@ class PDFProcessor:
         # If PyPDF2 fails, try pdfplumber
         try:
             import pdfplumber
-            chunks = self._extract_with_pdfplumber(pdf_path)
+            chunks = await loop.run_in_executor(executor, self._extract_with_pdfplumber, pdf_path)
             if chunks:
                 return chunks
         except Exception as e:
@@ -64,7 +71,7 @@ class PDFProcessor:
         # If both fail, try PyMuPDF
         try:
             import fitz
-            chunks = self._extract_with_pymupdf(pdf_path)
+            chunks = await loop.run_in_executor(executor, self._extract_with_pymupdf, pdf_path)
             if chunks:
                 return chunks
         except Exception as e:
@@ -73,13 +80,20 @@ class PDFProcessor:
         raise ValueError(f"Could not extract text from {pdf_path}")
     
     def _extract_with_pypdf2(self, pdf_path: str) -> List[PDFChunk]:
-        """Extract text using PyPDF2."""
+        """Extract text using PyPDF2 with progress reporting."""
         chunks = []
         
         with open(pdf_path, 'rb') as file:
             pdf_reader = PyPDF2.PdfReader(file)
+            total_pages = len(pdf_reader.pages)
             
-            for page_num, page in enumerate(pdf_reader.pages):
+            print(f"📄 Processing {total_pages} pages from PDF...")
+            
+            for page_num, page in enumerate(pdf_reader.pages, 1):
+                # Progress reporting every 50 pages or at end
+                if page_num % 50 == 0 or page_num == total_pages:
+                    print(f"   📖 Processed {page_num}/{total_pages} pages...")
+                
                 text = page.extract_text()
                 
                 if text.strip():
@@ -87,8 +101,10 @@ class PDFProcessor:
                     text = self._clean_text(text)
                     
                     # Split into chunks
-                    page_chunks = self._split_into_chunks(text, page_num + 1)
+                    page_chunks = self._split_into_chunks(text, page_num)
                     chunks.extend(page_chunks)
+            
+            print(f"✅ PDF processing complete: {len(chunks)} chunks extracted")
         
         return chunks
     
