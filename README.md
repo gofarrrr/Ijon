@@ -1,403 +1,207 @@
-# Context Engineering Template
+# Ijon - Intelligent PDF RAG System with Gemini Embeddings
 
-A comprehensive template for getting started with Context Engineering - the discipline of engineering context for AI coding assistants so they have the information necessary to get the job done end to end.
+An advanced Retrieval-Augmented Generation (RAG) system for extracting and querying knowledge from PDF documents, featuring Google's Gemini embeddings and smart contextual enhancement.
 
-> **Context Engineering is 10x better than prompt engineering and 100x better than vibe coding.**
+## 🎯 Overview
+
+Ijon processes PDF documents (particularly books on mental models, psychology, and decision-making) into a searchable knowledge base using:
+
+- **Gemini text-embedding-004** for semantic embeddings (768 dimensions)
+- **Neon PostgreSQL with pgvector** for vector storage and similarity search
+- **Smart Context Enhancement** for improved retrieval quality
+- **Mental Model Detection** for domain-specific understanding
 
 ## 🚀 Quick Start
 
 ```bash
-# 1. Clone this template
-git clone https://github.com/coleam00/Context-Engineering-Intro.git
-cd Context-Engineering-Intro
+# 1. Clone the repository
+git clone [repository-url]
+cd Ijon
 
-# 2. Set up your project rules (optional - template provided)
-# Edit CLAUDE.md to add your project-specific guidelines
+# 2. Set up environment
+python -m venv venv_ijon
+source venv_ijon/bin/activate  # On Windows: venv_ijon\Scripts\activate
+pip install -r requirements.txt
 
-# 3. Add examples (highly recommended)
-# Place relevant code examples in the examples/ folder
+# 3. Configure environment variables
+cp .env.example .env
+# Edit .env with your API keys:
+# - GEMINI_API_KEY
+# - NEON_CONNECTION_STRING or DATABASE_URL
 
-# 4. Create your initial feature request
-# Edit INITIAL.md with your feature requirements
+# 4. Initialize the database
+python setup_neon_database.py
+python migrate_neon_for_gemini.py
 
-# 5. Generate a comprehensive PRP (Product Requirements Prompt)
-# In Claude Code, run:
-/generate-prp INITIAL.md
+# 5. Process a PDF
+python process_single_book.py path/to/your.pdf
 
-# 6. Execute the PRP to implement your feature
-# In Claude Code, run:
-/execute-prp PRPs/your-feature-name.md
+# 6. Query the system
+python query_mental_models.py
+# Or direct query:
+python query_mental_models.py "What is flow state?"
 ```
 
-## 📚 Table of Contents
+## 📚 System Architecture
 
-- [What is Context Engineering?](#what-is-context-engineering)
-- [Template Structure](#template-structure)
-- [Step-by-Step Guide](#step-by-step-guide)
-- [Writing Effective INITIAL.md Files](#writing-effective-initialmd-files)
-- [The PRP Workflow](#the-prp-workflow)
-- [Using Examples Effectively](#using-examples-effectively)
-- [Best Practices](#best-practices)
-
-## What is Context Engineering?
-
-Context Engineering represents a paradigm shift from traditional prompt engineering:
-
-### Prompt Engineering vs Context Engineering
-
-**Prompt Engineering:**
-- Focuses on clever wording and specific phrasing
-- Limited to how you phrase a task
-- Like giving someone a sticky note
-
-**Context Engineering:**
-- A complete system for providing comprehensive context
-- Includes documentation, examples, rules, patterns, and validation
-- Like writing a full screenplay with all the details
-
-### Why Context Engineering Matters
-
-1. **Reduces AI Failures**: Most agent failures aren't model failures - they're context failures
-2. **Ensures Consistency**: AI follows your project patterns and conventions
-3. **Enables Complex Features**: AI can handle multi-step implementations with proper context
-4. **Self-Correcting**: Validation loops allow AI to fix its own mistakes
-
-## Template Structure
-
+### Core Pipeline
 ```
-context-engineering-intro/
-├── .claude/
-│   ├── commands/
-│   │   ├── generate-prp.md    # Generates comprehensive PRPs
-│   │   └── execute-prp.md     # Executes PRPs to implement features
-│   └── settings.local.json    # Claude Code permissions
-├── PRPs/
-│   ├── templates/
-│   │   └── prp_base.md       # Base template for PRPs
-│   └── EXAMPLE_multi_agent_prp.md  # Example of a complete PRP
-├── examples/                  # Your code examples (critical!)
-├── CLAUDE.md                 # Global rules for AI assistant
-├── INITIAL.md               # Template for feature requests
-├── INITIAL_EXAMPLE.md       # Example feature request
-└── README.md                # This file
+PDF → Text Extraction → Smart Chunking → Context Enhancement → Gemini Embeddings → Neon pgvector
+                                                ↓
+Query → Context Enhancement → Gemini Embedding → Similarity Search → Ranked Results
 ```
 
-This template doesn't focus on RAG and tools with context engineering because I have a LOT more in store for that soon. ;)
+### Key Components
 
-## Step-by-Step Guide
+1. **PDF Processing** (`src/pdf_processor/`)
+   - Extracts text from PDFs using PyPDF2/PyMuPDF
+   - Handles both text-based and scanned documents
+   - Implements semantic chunking with overlap
 
-### 1. Set Up Global Rules (CLAUDE.md)
+2. **Smart Context Enhancement** (`src/context/smart_context_enhancer.py`)
+   - Detects mental models and concepts
+   - Adds contextual metadata before embedding
+   - Three enhancement levels: basic, smart, analytical
 
-The `CLAUDE.md` file contains project-wide rules that the AI assistant will follow in every conversation. The template includes:
+3. **Gemini Embeddings** (`src/rag/gemini_embedder.py`)
+   - Uses Google's text-embedding-004 model
+   - 768-dimensional embeddings
+   - ~$0.025 per million tokens
+   - Optimized for retrieval tasks
 
-- **Project awareness**: Reading planning docs, checking tasks
-- **Code structure**: File size limits, module organization
-- **Testing requirements**: Unit test patterns, coverage expectations
-- **Style conventions**: Language preferences, formatting rules
-- **Documentation standards**: Docstring formats, commenting practices
+4. **Vector Storage** (Neon PostgreSQL)
+   - pgvector extension for similarity search
+   - Indexed for fast retrieval
+   - Supports filtering by metadata
 
-**You can use the provided template as-is or customize it for your project.**
+## 🔧 Configuration
 
-### 2. Create Your Initial Feature Request
-
-Edit `INITIAL.md` to describe what you want to build:
-
-```markdown
-## FEATURE:
-[Describe what you want to build - be specific about functionality and requirements]
-
-## EXAMPLES:
-[List any example files in the examples/ folder and explain how they should be used]
-
-## DOCUMENTATION:
-[Include links to relevant documentation, APIs, or MCP server resources]
-
-## OTHER CONSIDERATIONS:
-[Mention any gotchas, specific requirements, or things AI assistants commonly miss]
-```
-
-**See `INITIAL_EXAMPLE.md` for a complete example.**
-
-### 3. Generate the PRP
-
-PRPs (Product Requirements Prompts) are comprehensive implementation blueprints that include:
-
-- Complete context and documentation
-- Implementation steps with validation
-- Error handling patterns
-- Test requirements
-
-They are similar to PRDs (Product Requirements Documents) but are crafted more specifically to instruct an AI coding assistant.
-
-Run in Claude Code:
+### Environment Variables
 ```bash
-/generate-prp INITIAL.md
+# Required
+GEMINI_API_KEY=your-gemini-api-key
+DATABASE_URL=postgresql://user:pass@host/db  # or NEON_CONNECTION_STRING
+
+# Optional
+LOG_LEVEL=INFO
+CACHE_DIR=.cache
+ENABLE_CACHE=true
 ```
 
-**Note:** The slash commands are custom commands defined in `.claude/commands/`. You can view their implementation:
-- `.claude/commands/generate-prp.md` - See how it researches and creates PRPs
-- `.claude/commands/execute-prp.md` - See how it implements features from PRPs
-
-The `$ARGUMENTS` variable in these commands receives whatever you pass after the command name (e.g., `INITIAL.md` or `PRPs/your-feature.md`).
-
-This command will:
-1. Read your feature request
-2. Research the codebase for patterns
-3. Search for relevant documentation
-4. Create a comprehensive PRP in `PRPs/your-feature-name.md`
-
-### 4. Execute the PRP
-
-Once generated, execute the PRP to implement your feature:
-
-```bash
-/execute-prp PRPs/your-feature-name.md
-```
-
-The AI coding assistant will:
-1. Read all context from the PRP
-2. Create a detailed implementation plan
-3. Execute each step with validation
-4. Run tests and fix any issues
-5. Ensure all success criteria are met
-
-## Writing Effective INITIAL.md Files
-
-### Key Sections Explained
-
-**FEATURE**: Be specific and comprehensive
-- ❌ "Build a web scraper"
-- ✅ "Build an async web scraper using BeautifulSoup that extracts product data from e-commerce sites, handles rate limiting, and stores results in PostgreSQL"
-
-**EXAMPLES**: Leverage the examples/ folder
-- Place relevant code patterns in `examples/`
-- Reference specific files and patterns to follow
-- Explain what aspects should be mimicked
-
-**DOCUMENTATION**: Include all relevant resources
-- API documentation URLs
-- Library guides
-- MCP server documentation
-- Database schemas
-
-**OTHER CONSIDERATIONS**: Capture important details
-- Authentication requirements
-- Rate limits or quotas
-- Common pitfalls
-- Performance requirements
-
-## The PRP Workflow
-
-### How /generate-prp Works
-
-The command follows this process:
-
-1. **Research Phase**
-   - Analyzes your codebase for patterns
-   - Searches for similar implementations
-   - Identifies conventions to follow
-
-2. **Documentation Gathering**
-   - Fetches relevant API docs
-   - Includes library documentation
-   - Adds gotchas and quirks
-
-3. **Blueprint Creation**
-   - Creates step-by-step implementation plan
-   - Includes validation gates
-   - Adds test requirements
-
-4. **Quality Check**
-   - Scores confidence level (1-10)
-   - Ensures all context is included
-
-### How /execute-prp Works
-
-1. **Load Context**: Reads the entire PRP
-2. **Plan**: Creates detailed task list using TodoWrite
-3. **Execute**: Implements each component
-4. **Validate**: Runs tests and linting
-5. **Iterate**: Fixes any issues found
-6. **Complete**: Ensures all requirements met
-
-See `PRPs/EXAMPLE_multi_agent_prp.md` for a complete example of what gets generated.
-
-## Using Examples Effectively
-
-The `examples/` folder is **critical** for success. AI coding assistants perform much better when they can see patterns to follow.
-
-### What to Include in Examples
-
-1. **Code Structure Patterns**
-   - How you organize modules
-   - Import conventions
-   - Class/function patterns
-
-2. **Testing Patterns**
-   - Test file structure
-   - Mocking approaches
-   - Assertion styles
-
-3. **Integration Patterns**
-   - API client implementations
-   - Database connections
-   - Authentication flows
-
-4. **CLI Patterns**
-   - Argument parsing
-   - Output formatting
-   - Error handling
-
-### Example Structure
-
-```
-examples/
-├── README.md           # Explains what each example demonstrates
-├── cli.py             # CLI implementation pattern
-├── agent/             # Agent architecture patterns
-│   ├── agent.py      # Agent creation pattern
-│   ├── tools.py      # Tool implementation pattern
-│   └── providers.py  # Multi-provider pattern
-└── tests/            # Testing patterns
-    ├── test_agent.py # Unit test patterns
-    └── conftest.py   # Pytest configuration
-```
-
-## Best Practices
-
-### 1. Be Explicit in INITIAL.md
-- Don't assume the AI knows your preferences
-- Include specific requirements and constraints
-- Reference examples liberally
-
-### 2. Provide Comprehensive Examples
-- More examples = better implementations
-- Show both what to do AND what not to do
-- Include error handling patterns
-
-### 3. Use Validation Gates
-- PRPs include test commands that must pass
-- AI will iterate until all validations succeed
-- This ensures working code on first try
-
-### 4. Leverage Documentation
-- Include official API docs
-- Add MCP server resources
-- Reference specific documentation sections
-
-### 5. Customize CLAUDE.md
-- Add your conventions
-- Include project-specific rules
-- Define coding standards
-
-## Testing the Ijon PDF RAG System
-
-### Quick Start Testing
-
-1. **Initialize the system:**
-   ```bash
-   python initialize_system.py
-   ```
-   This will check dependencies, create directories, and generate sample PDFs.
-
-2. **Run the test demo:**
-   ```bash
-   python test_system.py --all
-   ```
-   This will process sample PDFs and run test queries.
-
-3. **Run component tests:**
-   ```bash
-   python run_tests.py --test-type component
-   ```
-
-4. **View the testing guide:**
-   See `TESTING_GUIDE.md` for comprehensive testing documentation.
-
-### Generated Files
-
-After running the initialization:
-- `sample_pdfs/` - Contains generated test PDFs
-- `test_data/` - Test datasets for evaluation
-- `logs/` - System logs
-- `evaluation_results/` - Evaluation metrics
-- `calibration_profiles/` - Optimized parameter sets
-
-## 🧠 Cognitive RAG Enhancements
-
-The Ijon system now includes advanced cognitive capabilities that intelligently route queries and enhance quality:
-
-### Key Features
-
-1. **Intelligent Query Routing**
-   - Simple queries use fast RAG path (50-200ms)
-   - Complex tasks route to specialized cognitive agents (2-10 minutes)
-   - 85.7% task classification accuracy
-
-2. **Specialized Cognitive Agents**
-   - AnalysisAgent - Deep analysis and insights
-   - SolutionAgent - Problem-solving and troubleshooting
-   - CreationAgent - Content generation
-   - VerificationAgent - Quality validation
-   - SynthesisAgent - Information integration
-
-3. **Automatic Quality Enhancement**
-   - Self-correction with 10-30% quality improvement
-   - Reasoning validation and logical consistency checking
-   - Evidence quality analysis
-   - Adaptive learning from performance
-
-### Quick Start with Cognitive RAG
-
+### Processing Options
 ```python
-from src.rag.cognitive_pipeline import create_cognitive_rag_pipeline
-from src.rag.pipeline import create_rag_pipeline
-from openai import AsyncOpenAI
+# Limit pages for large PDFs
+python process_single_book.py book.pdf --max-pages 100
 
-# Create cognitive-enhanced pipeline
-base_rag = create_rag_pipeline(
-    vector_store_type="pinecone",
-    enable_hyde=True  # Enable query enhancement
-)
-
-cognitive_rag = create_cognitive_rag_pipeline(
-    rag_pipeline=base_rag,
-    cognitive_threshold=0.6,
-    enable_hybrid_mode=True
-)
-
-# Simple query (fast path)
-result = await cognitive_rag.query(
-    "What is machine learning?",
-    client=openai_client
-)
-
-# Complex task (cognitive agents)
-result = await cognitive_rag.query(
-    "Create a comprehensive AI strategy for healthcare",
-    client=openai_client,
-    quality_threshold=0.8
-)
+# Process with custom context level
+python process_single_book.py book.pdf --context-level 2
 ```
 
-### Documentation
+## 📊 Current Data
 
-- [Getting Started Guide](docs/getting_started_cognitive_rag.md) - Quick start with cognitive features
-- [Cognitive Enhancements Summary](docs/agentic_rag_enhancements_final_summary.md) - Complete implementation details
-- [Phase 2: Cognitive Agents](docs/phase2_cognitive_agents_summary.md) - Agent system documentation
-- [Phase 3: Self-Correction](docs/phase3_self_correction_summary.md) - Quality enhancement details
+The system currently contains:
+- **Flow: The Psychology of Optimal Experience** - Complete (317 pages)
+- Additional mental models books can be added via `process_single_book.py`
 
-### Demo
+## 🔍 Querying
 
-Run the complete demo to see all features:
+### Interactive Mode
 ```bash
-python examples/cognitive_rag_demo.py
+python query_mental_models.py
 ```
 
-## Resources
+### Command Line Query
+```bash
+python query_mental_models.py "How do I achieve flow state?"
+```
 
-- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
-- [Context Engineering Best Practices](https://www.philschmid.de/context-engineering)
-- [Testing Guide](TESTING_GUIDE.md) - Comprehensive testing documentation
-- [Task Tracking](TASK.md) - Current development tasks
-- [Cognitive RAG Guide](docs/getting_started_cognitive_rag.md) - Using cognitive enhancements
+### Demo Queries
+```bash
+python query_mental_models.py demo
+```
+
+### Python API
+```python
+from src.rag.gemini_embedder import GeminiEmbeddingGenerator
+from src.context.smart_context_enhancer import SmartContextEnhancer
+import asyncio
+
+async def query_knowledge(question):
+    embedder = GeminiEmbeddingGenerator()
+    enhancer = SmartContextEnhancer()
+    
+    # Enhance query for better retrieval
+    enhanced_query = enhancer.add_context(question, metadata, level=1)
+    
+    # Generate embedding and search
+    embedding = await embedder.generate_embeddings([enhanced_query])
+    # ... perform vector search
+```
+
+## 🧪 Testing
+
+```bash
+# Test database connection
+python test_neon_connection.py
+
+# Test Gemini embeddings
+python test_gemini_embeddings.py
+
+# Test full pipeline
+python test_system.py
+
+# Run all tests
+python -m pytest tests/
+```
+
+## 📁 Project Structure
+
+```
+Ijon/
+├── src/
+│   ├── rag/
+│   │   ├── gemini_embedder.py      # Gemini embedding generation
+│   │   └── pipeline.py             # Main RAG pipeline
+│   ├── context/
+│   │   └── smart_context_enhancer.py # Context enhancement
+│   ├── pdf_processor/              # PDF processing modules
+│   └── utils/                      # Utilities and helpers
+├── extraction/
+│   └── v2/                         # Experimental 12-factor extraction
+├── query_mental_models.py          # Main query interface
+├── process_single_book.py          # PDF processing script
+├── setup_neon_database.py          # Database setup
+└── requirements.txt                # Dependencies
+```
+
+## 🚧 Experimental Features
+
+The following features are in development:
+- **Cognitive RAG Pipeline** - Agent-based query routing for complex tasks
+- **12-Factor Extraction** - Quality-driven extraction with human validation
+- **Knowledge Graph Integration** - Entity and relationship extraction
+
+## 📈 Performance
+
+- **Embedding Generation**: ~1-2 seconds per page
+- **Query Response**: 50-500ms for semantic search
+- **Storage**: ~9.5KB per embedding (when transferred as text)
+- **Quality**: 85%+ relevance for domain-specific queries
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Follow existing code patterns (see CLAUDE.md)
+4. Add tests for new functionality
+5. Submit a Pull Request
+
+## 📝 License
+
+[Your License Here]
+
+## 🙏 Acknowledgments
+
+- Google Gemini for embeddings API
+- Neon for serverless PostgreSQL
+- pgvector for vector similarity search

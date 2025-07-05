@@ -68,6 +68,14 @@
 - **See `/docs/12factor_benefits.md`** for detailed benefits and examples
 - **Use v2 extractors** in `/extraction/v2/` for new development
 
+### 🎯 Current System Architecture (IMPORTANT - Updated 2025-07-04)
+- **Primary Embeddings**: Gemini text-embedding-004 (768 dimensions) via `src/rag/gemini_embedder.py`
+- **Vector Storage**: Neon PostgreSQL with pgvector (NOT Pinecone)
+- **Context Enhancement**: SmartContextEnhancer for improved retrieval
+- **Query Interface**: `query_mental_models.py` for direct pgvector queries
+- **Processing Script**: `process_single_book.py` for PDF ingestion
+- **Legacy Code Warning**: Many experimental scripts exist (process_*.py) - DO NOT use these
+
 ### 🚀 Enhanced Prompt System (DEFAULT)
 - **USE ENHANCED VERSIONS BY DEFAULT** unless specifically instructed otherwise
 - **Enhanced extractors** provide superior quality through:

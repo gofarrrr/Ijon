@@ -6,6 +6,8 @@ with support for streaming large files and OCR for scanned pages.
 """
 
 import io
+import re
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
@@ -174,8 +176,9 @@ class PDFExtractor:
         creation_date = None
         if pdf_metadata.get("creationDate"):
             try:
-                # PyMuPDF returns dates in a specific format
-                creation_date = fitz.get_pdf_now()  # Placeholder, parse actual date
+                # Parse PDF date format: D:YYYYMMDDHHmmSS±HH'mm'
+                date_str = pdf_metadata["creationDate"]
+                creation_date = self._parse_pdf_date(date_str)
             except Exception:
                 pass
         
@@ -338,6 +341,56 @@ class PDFExtractor:
             
         except Exception as e:
             raise OCRError(f"OCR failed: {str(e)}")
+    
+    def _parse_pdf_date(self, date_str: str) -> Optional[datetime]:
+        """
+        Parse PDF date format: D:YYYYMMDDHHmmSS±HH'mm'
+        
+        Examples:
+        - D:20250705111556+02'00'
+        - D:20230101120000Z
+        - D:20230101
+        """
+        if not date_str:
+            return None
+            
+        try:
+            # Remove 'D:' prefix
+            if date_str.startswith('D:'):
+                date_str = date_str[2:]
+            
+            # Basic pattern for date components
+            match = re.match(r'(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?(.*)$', date_str)
+            if not match:
+                return None
+                
+            year = int(match.group(1))
+            month = int(match.group(2) or 1)
+            day = int(match.group(3) or 1)
+            hour = int(match.group(4) or 0)
+            minute = int(match.group(5) or 0)
+            second = int(match.group(6) or 0)
+            tz_str = match.group(7) or ''
+            
+            # Parse timezone
+            tz = timezone.utc  # Default to UTC
+            if tz_str:
+                if tz_str == 'Z':
+                    tz = timezone.utc
+                else:
+                    # Parse offset like +02'00' or -05'30'
+                    tz_match = re.match(r"([+-])(\d{2})'?(\d{2})?'?", tz_str)
+                    if tz_match:
+                        sign = 1 if tz_match.group(1) == '+' else -1
+                        hours = int(tz_match.group(2))
+                        minutes = int(tz_match.group(3) or 0)
+                        offset = timedelta(hours=sign * hours, minutes=sign * minutes)
+                        tz = timezone(offset)
+            
+            return datetime(year, month, day, hour, minute, second, tzinfo=tz)
+            
+        except (ValueError, AttributeError):
+            return None
 
 
 def create_pdf_extractor() -> PDFExtractor:

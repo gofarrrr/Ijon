@@ -1,311 +1,253 @@
-# Testing and Evaluation Guide for Ijon PDF RAG System
-
-This guide describes the comprehensive testing, evaluation, and calibration system for the Ijon PDF RAG system.
+# Testing Guide for Ijon
 
 ## Overview
 
-The testing framework consists of three main components:
+This guide covers testing practices for the Ijon PDF RAG system, which uses Gemini embeddings and Neon PostgreSQL with pgvector.
 
-1. **Component Testing**: Unit tests for individual modules
-2. **Evaluation System**: Quality metrics for RAG performance
-3. **Calibration System**: Parameter optimization for best results
+## Test Structure
 
-## Quick Start
-
-```bash
-# Run all tests
-python run_tests.py
-
-# Run specific test types
-python run_tests.py --test-type component
-python run_tests.py --test-type evaluation
-python run_tests.py --test-type calibration
+```
+tests/
+├── core/                    # Essential production tests
+├── experimental/            # R&D and experimental features
+├── test_config_simple.py    # Configuration tests
+├── test_pdf_processing.py   # PDF processing tests
+└── test_runner.py          # Test execution utilities
 ```
 
-## Component Testing
+## Running Tests
 
-### Test Coverage
-
-The system includes comprehensive tests for:
-
-- **PDF Processing**: Edge cases, corrupted files, large documents
-- **Vector Databases**: All three adapters (Pinecone, Neon, Supabase)
-- **Knowledge Graph**: Entity extraction, relationship building
-- **Agents**: Query planning, multi-hop reasoning
-- **Configuration**: Settings validation, environment handling
-
-### Running Component Tests
+### Quick Test Commands
 
 ```bash
-# Run all unit tests
-python -m pytest tests/ -v
+# Activate virtual environment
+source venv_ijon/bin/activate
 
-# Run specific test module
-python -m pytest tests/test_pdf_processing.py -v
+# Run all tests
+python -m pytest
 
 # Run with coverage
-python -m pytest tests/ --cov=src --cov-report=html
+python -m pytest --cov=src
+
+# Run specific test file
+python -m pytest tests/test_gemini_embeddings.py -v
+
+# Run only core tests
+python -m pytest tests/core/ -v
 ```
 
-### Key Test Scenarios
+### Essential System Tests
 
-1. **PDF Reliability Tests**
-   - Empty PDFs
-   - Corrupted PDFs
-   - Large PDFs (100+ pages)
-   - Scanned PDFs (with/without OCR)
-   - Special characters and Unicode
-   - Concurrent processing
-
-2. **Chunking Strategy Tests**
-   - Sentence boundary preservation
-   - Section-aware chunking
-   - Overlap consistency
-   - Memory efficiency
-
-## Evaluation System
-
-### Metrics
-
-The evaluation system measures:
-
-1. **Answer Quality**
-   - Relevance (0-1): Semantic similarity to expected answer
-   - Completeness (0-1): Coverage of required facts
-   - Correctness (0-1): Factual accuracy
-   - Coherence (0-1): Logical flow and consistency
-
-2. **Retrieval Quality**
-   - Precision: Relevant chunks / Retrieved chunks
-   - Recall: Relevant chunks found / Total relevant chunks
-   - F1 Score: Harmonic mean of precision and recall
-   - MRR: Mean Reciprocal Rank
-   - NDCG: Normalized Discounted Cumulative Gain
-
-3. **Graph Quality** (if enabled)
-   - Coverage: Percentage of entities/relations extracted
-   - Accuracy: Correctness of extracted relationships
-   - Connectivity: Graph connectivity score
-
-4. **Performance**
-   - Latency: End-to-end query time (ms)
-   - Tokens: Total tokens consumed
-   - Throughput: Queries per second
-
-### Test Datasets
-
-Create test datasets using:
-
-```python
-from tests.create_test_data import save_test_datasets
-save_test_datasets()
-```
-
-This creates:
-- `ml_comprehensive.json`: 7 ML-focused test cases
-- `medical_basic.json`: Medical domain questions
-- `legal_basic.json`: Legal domain questions
-
-### Running Evaluations
-
-```python
-from src.rag.pipeline import RAGPipeline
-from tests.test_evaluation import RAGEvaluator, create_sample_test_dataset
-
-# Initialize pipeline
-pipeline = await RAGPipeline.create()
-
-# Create evaluator
-evaluator = RAGEvaluator(pipeline)
-
-# Run evaluation
-dataset = create_sample_test_dataset()
-results = await evaluator.evaluate_dataset(
-    dataset,
-    use_agent=True,
-    save_results=True
-)
-
-print(f"Overall Score: {results['overall_score']['mean']:.2f}")
-```
-
-## Calibration System
-
-### Tunable Parameters
-
-| Parameter | Range | Description |
-|-----------|-------|-------------|
-| chunk_size | 200-2000 | Size of text chunks |
-| chunk_overlap | 0-500 | Overlap between chunks |
-| retrieval_top_k | 3-15 | Number of chunks to retrieve |
-| retrieval_min_score | 0.0-0.9 | Minimum similarity score |
-| entity_confidence_threshold | 0.5-0.95 | Entity extraction confidence |
-| graph_traversal_depth | 1-4 | Graph traversal depth |
-| agent_temperature | 0.0-1.0 | Agent response temperature |
-| agent_max_iterations | 1-5 | Maximum reasoning iterations |
-
-### Calibration Methods
-
-1. **Single Parameter Optimization**
-   ```python
-   from src.calibration import RAGCalibrator
-   
-   calibrator = RAGCalibrator(pipeline, evaluator)
-   result = await calibrator.calibrate_parameter(
-       parameter,
-       test_dataset,
-       optimization_metric="overall_score"
-   )
+1. **Database Connection**
+   ```bash
+   python test_neon_connection.py
    ```
+   Verifies Neon PostgreSQL connection and pgvector operations.
 
-2. **Auto-Calibration**
-   ```python
-   profile = await calibrator.auto_calibrate(
-       test_dataset,
-       parameters=["chunk_size", "retrieval_top_k"],
-       optimization_metric="retrieval_f1"
-   )
+2. **Gemini Embeddings**
+   ```bash
+   python test_gemini_simple.py
    ```
+   Tests Gemini text-embedding-004 API integration.
 
-3. **Grid Search**
-   ```python
-   profile = await calibrator.grid_search(
-       parameters,
-       test_dataset,
-       optimization_metric="answer_relevance"
-   )
+3. **Full Pipeline**
+   ```bash
+   python test_system.py
    ```
+   End-to-end test of PDF processing and querying.
 
-### Confidence Calibration
+## Test Categories
 
-Calibrate confidence scores for better reliability:
+### Core Tests (Always Run)
+- `test_neon_connection.py` - Database operations
+- `test_gemini_embeddings.py` - Embedding generation
+- `test_gemini_simple.py` - Gemini API integration
+- `tests/test_config_simple.py` - Configuration management
+- `tests/test_pdf_processing.py` - PDF extraction reliability
 
+### Integration Tests
+- `test_system.py` - Full system integration
+- `test_real_pipeline.py` - Real PDF processing pipeline
+- `test_v2_with_pdf.py` - V2 extraction system
+
+### Demo Scripts
+- `demo_simple.py` - Basic functionality demo
+- `demo_with_apis.py` - API integration demo
+
+## Writing New Tests
+
+### Test Template
 ```python
-from src.calibration import ConfidenceCalibrator
-
-calibrator = ConfidenceCalibrator()
-
-# Add samples during evaluation
-for prediction in predictions:
-    calibrator.add_sample(
-        predicted_confidence=prediction.confidence,
-        was_correct=prediction.is_correct
-    )
-
-# Calculate calibration
-results = calibrator.calibrate()
-print(f"Expected Calibration Error: {results['expected_calibration_error']:.3f}")
-```
-
-## Debugging Tools
-
-### Query Tracing
-
-```python
-from tests.test_runner import DebugTracer
-
-tracer = DebugTracer()
-
-# Add traces during execution
-tracer.trace("retrieval_start", {"query": query})
-tracer.trace("chunks_retrieved", {"chunks_retrieved": len(chunks)})
-tracer.trace("answer_generated", {"answer_length": len(answer)})
-
-# Get summary
-print(tracer.get_trace_summary())
-```
-
-### Performance Monitoring
-
-```python
-from src.utils.logging import log_performance
-
-@log_performance
-async def process_query(query: str):
-    # Function automatically logs execution time
-    pass
-```
-
-## Best Practices
-
-1. **Test Data Quality**
-   - Create diverse test cases covering edge cases
-   - Include domain-specific examples
-   - Verify expected answers are accurate
-
-2. **Evaluation Strategy**
-   - Run evaluations on representative datasets
-   - Use multiple metrics, not just overall score
-   - Compare agent vs non-agent performance
-
-3. **Calibration Tips**
-   - Start with single parameter optimization
-   - Use grid search for interacting parameters
-   - Save and version calibration profiles
-
-4. **Debugging Approach**
-   - Enable query tracing for failed cases
-   - Check retrieval quality before answer quality
-   - Monitor performance metrics for bottlenecks
-
-## Example: Complete Testing Workflow
-
-```python
+import pytest
 import asyncio
-from pathlib import Path
+from your_module import YourClass
 
-async def complete_testing_workflow():
-    # 1. Initialize system
-    from src.rag.pipeline import RAGPipeline
-    pipeline = await RAGPipeline.create()
+class TestYourFeature:
+    """Test suite for your feature."""
     
-    # 2. Process test PDFs
-    test_pdf = Path("test_data/sample.pdf")
-    await pipeline.process_pdf(test_pdf)
+    @pytest.mark.asyncio
+    async def test_success_case(self):
+        """Test normal operation."""
+        result = await your_async_function()
+        assert result.status == "success"
     
-    # 3. Run evaluation
-    from tests.test_evaluation import RAGEvaluator, create_sample_test_dataset
-    evaluator = RAGEvaluator(pipeline)
-    dataset = create_sample_test_dataset()
+    def test_error_handling(self):
+        """Test error conditions."""
+        with pytest.raises(YourError):
+            problematic_function()
     
-    baseline_results = await evaluator.evaluate_dataset(dataset)
-    print(f"Baseline Score: {baseline_results['overall_score']['mean']:.2f}")
-    
-    # 4. Calibrate parameters
-    from src.calibration import RAGCalibrator
-    calibrator = RAGCalibrator(pipeline, evaluator)
-    
-    profile = await calibrator.auto_calibrate(
-        dataset,
-        parameters=["chunk_size", "retrieval_top_k"]
-    )
-    
-    # 5. Re-evaluate with optimal parameters
-    final_results = await evaluator.evaluate_dataset(dataset)
-    print(f"Optimized Score: {final_results['overall_score']['mean']:.2f}")
-    
-    # 6. Save calibration profile
-    print(f"Calibration profile saved: {profile.name}")
-
-# Run the workflow
-asyncio.run(complete_testing_workflow())
+    def test_edge_case(self):
+        """Test boundary conditions."""
+        result = your_function("")
+        assert result is None
 ```
 
-## Continuous Testing
+### Testing Guidelines
 
-For production deployments:
+1. **Test Naming**: Use descriptive names that explain what is being tested
+2. **Isolation**: Each test should be independent
+3. **Coverage**: Aim for >80% code coverage
+4. **Edge Cases**: Test boundaries and error conditions
+5. **Async Tests**: Use `pytest.mark.asyncio` for async functions
 
-1. **Automated Testing**
-   - Run component tests on every commit
-   - Schedule daily evaluation runs
-   - Monitor performance metrics
+## Environment Setup for Testing
 
-2. **A/B Testing**
-   - Test new calibration profiles
-   - Compare different retrieval strategies
-   - Measure user satisfaction
+### Required Environment Variables
+```bash
+# .env.test (create for testing)
+GEMINI_API_KEY=your-test-api-key
+DATABASE_URL=postgresql://test-db-connection
+LOG_LEVEL=DEBUG
+```
 
-3. **Feedback Loop**
-   - Collect user feedback on answers
-   - Update test datasets with real queries
-   - Refine calibration based on usage
+### Test Database Setup
+```bash
+# Use a separate test database
+python setup_neon_database.py --test
+python migrate_neon_for_gemini.py --test
+```
+
+## Common Test Scenarios
+
+### 1. Testing Embeddings
+```python
+async def test_embedding_generation():
+    embedder = GeminiEmbeddingGenerator()
+    embeddings = await embedder.generate_embeddings(["test text"])
+    assert len(embeddings[0]) == 768  # Gemini dimension
+```
+
+### 2. Testing Context Enhancement
+```python
+def test_context_enhancement():
+    enhancer = SmartContextEnhancer()
+    enhanced = enhancer.add_context("text", metadata, level=1)
+    assert "[" in enhanced  # Context added
+```
+
+### 3. Testing Database Operations
+```python
+async def test_vector_search():
+    conn = await asyncpg.connect(DATABASE_URL)
+    results = await search_similar_chunks(conn, query_embedding)
+    assert len(results) > 0
+```
+
+## Performance Testing
+
+### Measure Processing Time
+```python
+import time
+
+start = time.time()
+await process_pdf("test.pdf")
+duration = time.time() - start
+assert duration < 60  # Should process in under 1 minute
+```
+
+### Memory Usage
+```python
+import psutil
+import os
+
+process = psutil.Process(os.getpid())
+initial_memory = process.memory_info().rss
+
+# Run your operation
+await heavy_operation()
+
+final_memory = process.memory_info().rss
+memory_increase = (final_memory - initial_memory) / 1024 / 1024  # MB
+assert memory_increase < 500  # Should use less than 500MB
+```
+
+## Debugging Failed Tests
+
+### Enable Debug Logging
+```bash
+LOG_LEVEL=DEBUG python -m pytest tests/failing_test.py -v -s
+```
+
+### Common Issues
+
+1. **API Key Missing**
+   ```
+   Error: GEMINI_API_KEY not found
+   Solution: Set environment variable or create .env file
+   ```
+
+2. **Database Connection Failed**
+   ```
+   Error: Connection refused
+   Solution: Check DATABASE_URL and network connectivity
+   ```
+
+3. **Import Errors**
+   ```
+   Error: No module named 'src'
+   Solution: Run from project root or set PYTHONPATH
+   ```
+
+## Continuous Integration
+
+### GitHub Actions Example
+```yaml
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements_test.txt
+      - name: Run tests
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python -m pytest --cov=src
+```
+
+## Test Maintenance
+
+### Regular Tasks
+1. Update tests when APIs change
+2. Remove obsolete tests
+3. Add tests for new features
+4. Review and improve test coverage
+5. Update this guide as needed
+
+### Test Review Checklist
+- [ ] Tests pass locally
+- [ ] New features have tests
+- [ ] Edge cases covered
+- [ ] Documentation updated
+- [ ] No hardcoded values
+- [ ] Cleanup after tests

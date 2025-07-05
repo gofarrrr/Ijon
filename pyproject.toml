@@ -2,7 +2,7 @@
 name = "ijon"
 version = "0.1.0"
 description = "PDF Extraction & RAG System with Google Drive Integration"
-authors = ["Marcin <marcin@example.com>"]
+authors = ["Ijon Contributors"]
 readme = "README.md"
 python = "^3.11"
 

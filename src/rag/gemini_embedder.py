@@ -1,11 +1,6 @@
 """
-Embedding generation module for RAG pipeline.
-
-This module handles text embedding generation using Gemini embeddings,
-with caching and batch processing support.
-
-Updated: Now uses Gemini text-embedding-004 by default.
-Legacy OpenAI support removed.
+Gemini-specific embedding generator for RAG pipeline.
+This version only supports Gemini embeddings without sentence-transformers dependency.
 """
 
 import hashlib
@@ -15,81 +10,63 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+import google.generativeai as genai
 
 from src.config import get_settings
 from src.utils.errors import EmbeddingGenerationError
-from src.utils.logging import get_logger, log_performance
+from src.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 
-class EmbeddingGenerator:
-    """Generate embeddings for text using Gemini or other API models."""
+class GeminiEmbeddingGenerator:
+    """Generate embeddings using Gemini text-embedding-004."""
 
     def __init__(
         self,
-        model_name: Optional[str] = None,
-        device: Optional[str] = None,
         cache_dir: Optional[Path] = None,
         use_cache: bool = True,
         batch_size: int = 32,
     ) -> None:
         """
-        Initialize embedding generator.
+        Initialize Gemini embedding generator.
 
         Args:
-            model_name: Model name (default: 'text-embedding-004')
-            device: Device to use (ignored for API models)
             cache_dir: Directory for caching embeddings
             use_cache: Whether to cache embeddings
             batch_size: Batch size for encoding
         """
         self.settings = get_settings()
-        self.model_name = model_name or self.settings.embedding_model
-        self.device = device  # Kept for compatibility
-        self.cache_dir = cache_dir or self.settings.cache_dir / "embeddings"
-        self.use_cache = use_cache and self.settings.enable_cache
+        self.model_name = "text-embedding-004"
+        self.cache_dir = cache_dir or Path(".cache") / "embeddings"
+        self.use_cache = use_cache
         self.batch_size = batch_size
         
-        # API configuration
-        self._gemini_configured = False
+        # Configure Gemini
+        self._configure_gemini()
         
         # Setup cache directory
         if self.use_cache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
         
-        logger.info(f"Initialized embedding generator with model: {self.model_name}")
-
-    @property
-    def model(self):
-        """Compatibility property - returns None for API models."""
-        return None
+        logger.info(f"Initialized Gemini embedding generator")
 
     @property
     def dimension(self) -> int:
-        """Get embedding dimension for current model."""
-        if self.model_name == "text-embedding-004":
-            return 768  # Gemini embeddings
-        else:
-            # Default for compatibility
-            return 768
+        """Get embedding dimension for Gemini model."""
+        return 768
 
-    def _ensure_gemini_client(self) -> None:
-        """Ensure Gemini is configured for embeddings."""
-        if self._gemini_configured:
-            return
-            
+    def _configure_gemini(self) -> None:
+        """Configure Gemini API."""
         try:
-            import google.generativeai as genai
-            gemini_api_key = os.getenv("GEMINI_API_KEY")
-            if not gemini_api_key:
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
                 raise ValueError("GEMINI_API_KEY not found in environment")
-            genai.configure(api_key=gemini_api_key)
-            self._gemini_configured = True
+            genai.configure(api_key=api_key)
+            logger.info("Gemini API configured successfully")
         except Exception as e:
             raise EmbeddingGenerationError(f"Failed to configure Gemini: {str(e)}")
 
-    @log_performance
     async def generate_embeddings(
         self,
         texts: List[str],
@@ -127,7 +104,7 @@ class EmbeddingGenerator:
                 uncached_texts = texts
                 uncached_indices = list(range(len(texts)))
             
-            # Generate embeddings using Gemini
+            # Generate embeddings for uncached texts
             new_embeddings = await self._generate_gemini_embeddings(uncached_texts)
             
             # Combine cached and new embeddings
@@ -143,18 +120,14 @@ class EmbeddingGenerator:
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {e}")
             raise EmbeddingGenerationError(f"Embedding generation failed: {str(e)}")
-    
+
     async def _generate_gemini_embeddings(
         self,
         texts: List[str],
     ) -> List[List[float]]:
         """Generate embeddings using Gemini API."""
-        self._ensure_gemini_client()
-        
-        import google.generativeai as genai
-        
         # Gemini has a batch limit of 100
-        max_batch_size = min(self.batch_size, 100)
+        max_batch_size = 100
         all_embeddings = []
         
         for i in range(0, len(texts), max_batch_size):
@@ -283,12 +256,3 @@ class EmbeddingGenerator:
             raise ValueError(f"Unknown similarity metric: {metric}")
         
         return float(similarity)
-
-
-def create_embedding_generator() -> EmbeddingGenerator:
-    """Create an embedding generator with default settings."""
-    settings = get_settings()
-    return EmbeddingGenerator(
-        model_name=settings.embedding_model,
-        use_cache=settings.enable_cache,
-    )
