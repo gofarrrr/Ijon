@@ -237,57 +237,75 @@ class DocumentRetriever:
         results: List[SearchResult],
     ) -> List[SearchResult]:
         """
-        Re-rank search results for better relevance.
+        Re-rank search results using state-of-the-art hybrid reranking.
 
         Args:
             query: Original query
             results: Initial search results
 
         Returns:
-            Re-ranked results
+            Re-ranked results using Anthropic's contextual retrieval + BGE
         """
-        # For now, use a simple re-ranking based on multiple factors
-        # TODO: Implement cross-encoder re-ranking for better accuracy
-        
-        reranked = []
-        
-        for result in results:
-            # Calculate additional relevance signals
-            doc = result.document
+        try:
+            # Use state-of-the-art hybrid reranker if available
+            if not hasattr(self, '_hybrid_reranker'):
+                from src.rag.reranker import create_hybrid_reranker
+                self._hybrid_reranker = create_hybrid_reranker()
             
-            # Length penalty - prefer chunks of moderate length
-            ideal_length = 500
-            length_score = 1.0 - abs(len(doc.content) - ideal_length) / ideal_length * 0.2
-            length_score = max(0.0, length_score)
-            
-            # Query term overlap
-            query_terms = set(query.lower().split())
-            doc_terms = set(doc.content.lower().split())
-            overlap_score = len(query_terms & doc_terms) / len(query_terms) if query_terms else 0
-            
-            # Combine scores (vector similarity + other signals)
-            combined_score = (
-                result.score * 0.7 +  # Vector similarity
-                overlap_score * 0.2 +  # Term overlap
-                length_score * 0.1    # Length preference
+            # Apply hybrid reranking with all latest techniques
+            reranked_results = await self._hybrid_reranker.hybrid_rerank(
+                query=query,
+                vector_results=results,
+                top_k=len(results),  # Keep all for now
+                use_contextual_enhancement=True,
             )
             
-            # Create new result with updated score
-            reranked_result = SearchResult(
-                document=doc,
-                score=combined_score,
-                rank=result.rank,
-            )
-            reranked.append(reranked_result)
-        
-        # Sort by combined score
-        reranked.sort(key=lambda x: x.score, reverse=True)
-        
-        # Update ranks
-        for i, result in enumerate(reranked):
-            result.rank = i + 1
-        
-        return reranked
+            logger.info(f"Applied state-of-the-art hybrid reranking to {len(results)} results")
+            return reranked_results
+            
+        except Exception as e:
+            logger.warning(f"Hybrid reranking failed, using fallback: {e}")
+            
+            # Fallback to simple reranking
+            reranked = []
+            
+            for result in results:
+                # Calculate additional relevance signals
+                doc = result.document
+                
+                # Length penalty - prefer chunks of moderate length
+                ideal_length = 500
+                length_score = 1.0 - abs(len(doc.content) - ideal_length) / ideal_length * 0.2
+                length_score = max(0.0, length_score)
+                
+                # Query term overlap
+                query_terms = set(query.lower().split())
+                doc_terms = set(doc.content.lower().split())
+                overlap_score = len(query_terms & doc_terms) / len(query_terms) if query_terms else 0
+                
+                # Combine scores (vector similarity + other signals)
+                combined_score = (
+                    result.score * 0.7 +  # Vector similarity
+                    overlap_score * 0.2 +  # Term overlap
+                    length_score * 0.1    # Length preference
+                )
+                
+                # Create new result with updated score
+                reranked_result = SearchResult(
+                    document=doc,
+                    score=combined_score,
+                    rank=result.rank,
+                )
+                reranked.append(reranked_result)
+            
+            # Sort by combined score
+            reranked.sort(key=lambda x: x.score, reverse=True)
+            
+            # Update ranks
+            for i, result in enumerate(reranked):
+                result.rank = i + 1
+            
+            return reranked
 
     async def find_similar_chunks(
         self,

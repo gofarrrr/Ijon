@@ -21,6 +21,11 @@ openai>=1.0.0
 sentence-transformers>=2.2.0
 torch>=2.0.0
 transformers>=4.30.0
+google-generativeai>=0.3.0  # Gemini API
+
+# State-of-the-art reranking
+FlagEmbedding>=1.2.0  # BGE reranker models
+rank-bm25>=0.2.2  # BM25 implementation
 
 # Graph database
 neo4j>=5.0.0
